@@ -1,10 +1,12 @@
 package com.github.rakhmedovrs.server;
 
+import com.github.rakhmedovrs.Common;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -14,16 +16,35 @@ import java.util.concurrent.Executors;
  */
 @Slf4j
 public class Server implements Runnable {
-
-	private static final int DEFAULT_PORT = 8189;
-	private static final int MAXIMUM_NUMBER_OF_ACTIVE_CLIENTS = 10;
-
 	private final int port;
 	private final ExecutorService executorService;
+	private final ConcurrentHashMap<String, ClientStats> stats;
 
 	public Server() {
-		port = DEFAULT_PORT;
-		executorService = Executors.newFixedThreadPool(MAXIMUM_NUMBER_OF_ACTIVE_CLIENTS);
+		port = Common.DEFAULT_PORT;
+		executorService = Executors.newFixedThreadPool(Common.MAXIMUM_NUMBER_OF_ACTIVE_CLIENTS + 1); // 1 additional thread for printing starts
+		stats = new ConcurrentHashMap<>();
+
+		executorService.submit(() -> {
+			while (!executorService.isTerminated()) {
+				try {
+					ServerStats serverStats = new ServerStats();
+					stats.forEach(((clientId, clientStats) -> {
+						serverStats.addActiveClient();
+						serverStats.addCorrectGuesses(clientStats.getCorrectGuesses());
+						serverStats.addIncorrectGuesses(clientStats.getIncorrectGuesses());
+					}));
+
+					double totalNumberOfCorrectGuesses = serverStats.getTotalNumberOfCorrectGuesses();
+					double totalNumberOfIncorrectGuesses = serverStats.getTotalNumberOfIncorrectGuesses();
+					log.info(serverStats.toString());
+					log.info("Ratio of correct guesses {}", totalNumberOfCorrectGuesses / totalNumberOfIncorrectGuesses);
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		});
 	}
 
 	@Override
@@ -34,13 +55,11 @@ public class Server implements Runnable {
 				log.info("Server socket on port {} has been successfully stated", port);
 				Socket socket = serverSocket.accept();
 				log.info("New incoming connection request");
-				executorService.submit(new SocketConnectionHandler(socket));
+				executorService.submit(new SocketConnectionHandler(socket, stats));
 			}
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			throw new RuntimeException(e);
-		}
-		finally {
+		} finally {
 			log.info("Shutting down executorService");
 			executorService.shutdownNow();
 			log.info("executorService has been shutdown");

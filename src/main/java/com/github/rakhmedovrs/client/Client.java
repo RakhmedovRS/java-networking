@@ -31,6 +31,12 @@ public class Client implements Runnable {
 	private static final String SERVER_URL = "localhost";
 	private static final int DEFAULT_PORT = 8189;
 
+	private final int clientId;
+
+	public Client(int clientId) {
+		this.clientId = clientId;
+	}
+
 	@Override
 	public void run() {
 		log.info("Attempting to establish connection to {} on port {}", SERVER_URL, DEFAULT_PORT);
@@ -61,7 +67,7 @@ public class Client implements Runnable {
 						log.info("Attempting to guess number in range [{},{}]", range.start, range.end);
 					}
 					randomNumber = random.nextInt(range.end + 1);
-					output.println(randomNumber);
+					output.println(clientId + "_" + randomNumber);
 
 					Thread.sleep(500);
 				}

@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ServerRunner {
-	public static void main(String[] args) {
-		new Server().run();
+	public static void main(String[] args) throws InterruptedException {
+		Thread thread = new Thread(new Server());
+		thread.start();
+		thread.join();
 	}
 }

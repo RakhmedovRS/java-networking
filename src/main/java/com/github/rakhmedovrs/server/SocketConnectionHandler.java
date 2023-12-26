@@ -1,11 +1,13 @@
 package com.github.rakhmedovrs.server;
 
 
+import com.github.rakhmedovrs.Common;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -21,8 +23,11 @@ public class SocketConnectionHandler implements Runnable {
 
 	private final Socket incomingConnection;
 
-	public SocketConnectionHandler(Socket incomingConnection) {
+	private final Map<String, ClientStats> stats;
+
+	public SocketConnectionHandler(Socket incomingConnection, Map<String, ClientStats> stats) {
 		this.incomingConnection = incomingConnection;
+		this.stats = stats;
 	}
 
 	@Override
@@ -35,54 +40,63 @@ public class SocketConnectionHandler implements Runnable {
 			try (Scanner inputReader = new Scanner(inputStream, StandardCharsets.UTF_8);
 				 PrintWriter output = new PrintWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8), true)) {
 				Integer randomNumber = random.nextInt(RANDOM_RANGE + 1); //upper bound is excluded
-				log.info("Server decided to generate {} as a number to be guessed", randomNumber);
+				logIfNeeded("Server decided to generate {} as a number to be guessed", randomNumber);
 				output.println("Server generated random number in range [0," + RANDOM_RANGE + "]. Guess it");
 
 				while (inputReader.hasNextLine()) {
 					String input = inputReader.nextLine();
+					String[] params = input.split("_");
+					String clientId = params[0];
+					ClientStats clientStats = stats.computeIfAbsent(clientId, ClientStats::new);
+
+					if (input.equalsIgnoreCase(STOP_COMMAND)) {
+						logIfNeeded("Client with id {} requested terminating connection", clientId);
+						output.println("Stop command has been received, terminating connection");
+						return;
+					}
+
 					try {
-						int guess = Integer.parseInt(input);
+						int guess = Integer.parseInt(params[1]);
 						if (guess < 0 || guess > RANDOM_RANGE) {
-							log.info("Client provided incorrect input");
+							clientStats.addIncorrectGuess();
+							logIfNeeded("Client with id {} provided incorrect input", clientId);
 							output.println("Your input is incorrect, it must be a number in range [0," + RANDOM_RANGE + "]. Guess it");
 						}
 
 						if (randomNumber.equals(guess)) {
-							log.info("Client correctly guessed the number");
+							clientStats.addCorrectGuess();
+							logIfNeeded("Client with id {} correctly guessed the number", clientId);
 							randomNumber = random.nextInt(RANDOM_RANGE + 1); //upper bound is excluded
-							log.info("Server decided to generate {} as a number to be guessed", randomNumber);
+							logIfNeeded("Server decided to generate {} as a number to be guessed", randomNumber);
 							output.println("Congrats you correctly guessed the number. " + "Server generated another random number in range [0," + RANDOM_RANGE + "]. Guess it");
-						}
-						else {
-							log.info("Client made incorrect guess {}", guess);
+						} else {
+							clientStats.addIncorrectGuess();
+							logIfNeeded("Client with id {} made incorrect guess {}", clientId, guess);
 							output.println("Wrong guess");
 						}
-					}
-					catch (NumberFormatException ignore) {
-						if (input.equalsIgnoreCase(STOP_COMMAND)) {
-							log.info("Client requested terminating connection");
-							output.println("Stop command has been received, terminating connection");
-							return;
-						}
-
-						log.info("Client provided incorrect input");
+					} catch (NumberFormatException ignore) {
+						clientStats.addIncorrectGuess();
+						logIfNeeded("Client with id {} provided incorrect input", clientId);
 						output.println("Your input is incorrect, it must be a number in range [0," + RANDOM_RANGE + "]. Guess it");
 					}
 				}
 			}
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			log.error("Error during interaction with the client", e);
-		}
-		finally {
+		} finally {
 			try {
 				log.info("Attempting to close socket");
 				incomingConnection.close();
 				log.info("Socket was closed");
-			}
-			catch (IOException e) {
+			} catch (IOException e) {
 				log.error("Error during attempting to close socket", e);
 			}
+		}
+	}
+
+	private void logIfNeeded(String logString, Object... arguments) {
+		if (Common.MAXIMUM_NUMBER_OF_ACTIVE_CLIENTS <= 10) {
+			log.info(logString, arguments);
 		}
 	}
 }
