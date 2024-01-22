@@ -1,7 +1,7 @@
 package com.github.rakhmedovrs.avro.utils;
 
-import com.github.rakhmedovrs.avro.ClientGuessRequest;
-import com.github.rakhmedovrs.avro.RequestIntention;
+import com.github.rakhmedovrs.avro.ClientRequest;
+import com.github.rakhmedovrs.avro.ClientMessageType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -12,19 +12,19 @@ import java.io.IOException;
  * @created 1/21/2024
  */
 class AvroUtilsTest {
-	private final static String CLIENT_GUESS_JSON_MESSAGE = "{\"clientId\":1,\"requestIntention\":\"MAKE_A_GUESS\",\"guess\":1}";
+	private final static String CLIENT_GUESS_JSON_MESSAGE = "{\"clientId\":1,\"ClientMessageType\":\"GUESS\",\"guess\":1}";
 
 	@Test
 	void parseJson() throws IOException {
-		ClientGuessRequest expectedClientGuess = new ClientGuessRequest(1, RequestIntention.MAKE_A_GUESS, 1);
-		ClientGuessRequest convertedClientGuess = AvroUtils.parseJson(CLIENT_GUESS_JSON_MESSAGE, ClientGuessRequest.getClassSchema());
+		ClientRequest expectedClientGuess = new ClientRequest(1, ClientMessageType.GUESS, 1);
+		ClientRequest convertedClientGuess = AvroUtils.parseJson(CLIENT_GUESS_JSON_MESSAGE, ClientRequest.getClassSchema(), ClientRequest.class);
 		Assertions.assertEquals(expectedClientGuess, convertedClientGuess);
 	}
 
 	@Test
 	void testConvertingAvroToJsonString() throws IOException {
-		ClientGuessRequest clientGuess = new ClientGuessRequest(1, RequestIntention.MAKE_A_GUESS, 1);
-		String jsonString = AvroUtils.convertAvroToJsonString(clientGuess, ClientGuessRequest.getClassSchema());
+		ClientRequest clientGuess = new ClientRequest(1, ClientMessageType.GUESS, 1);
+		String jsonString = AvroUtils.convertAvroToJsonString(clientGuess, ClientRequest.getClassSchema(), ClientRequest.class);
 		Assertions.assertEquals(CLIENT_GUESS_JSON_MESSAGE, jsonString);
 	}
 }

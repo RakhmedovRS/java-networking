@@ -2,10 +2,7 @@ package com.github.rakhmedovrs.server;
 
 
 import com.github.rakhmedovrs.Common;
-import com.github.rakhmedovrs.avro.ClientGuessRequest;
-import com.github.rakhmedovrs.avro.GuessResult;
-import com.github.rakhmedovrs.avro.RequestIntention;
-import com.github.rakhmedovrs.avro.ServerGuessResponse;
+import com.github.rakhmedovrs.avro.*;
 import com.github.rakhmedovrs.avro.utils.AvroUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,15 +43,15 @@ public class SocketConnectionHandler implements Runnable {
 				 PrintWriter output = new PrintWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8), true)) {
 				Integer randomNumber = random.nextInt(RANDOM_RANGE + 1); //upper bound is excluded
 				logIfNeeded("Server decided to generate {} as a number to be guessed", randomNumber);
-				output.println(generateServerGuessResponseAsString(GuessResult.UNDEFINED));
+				output.println(generateServerResponseAsString(ServerClientMessageType.GUESS, null, 0, RANDOM_RANGE));
 
 				while (inputReader.hasNextLine()) {
-					ClientGuessRequest clientGuess = AvroUtils.parseJson(inputReader.nextLine(), ClientGuessRequest.getClassSchema());
+					ClientRequest clientGuess = AvroUtils.parseJson(inputReader.nextLine(), ClientRequest.getClassSchema(), ClientRequest.class);
 
 					clientId = clientGuess.getClientId();
 					ClientStats clientStats = stats.computeIfAbsent(clientId, ClientStats::new);
 
-					if (clientGuess.getRequestIntention() == RequestIntention.DROP_CONNECTION) {
+					if (clientGuess.getClientClientMessageType() == ClientMessageType.CONNECT) {
 						logIfNeeded("Client with id {} requested terminating connection", clientId);
 						output.println("Stop command has been received, terminating connection");
 						return;
@@ -65,7 +62,7 @@ public class SocketConnectionHandler implements Runnable {
 						if (guess < 0 || guess > RANDOM_RANGE) {
 							clientStats.addIncorrectGuess();
 							logIfNeeded("Client with id {} provided incorrect input", clientId);
-							output.println(generateServerGuessResponseAsString(GuessResult.INCORRECT));
+							output.println(generateServerResponseAsString(ServerClientMessageType.GUESS, Result.INCORRECT, 0, RANDOM_RANGE));
 						}
 
 						if (randomNumber.equals(guess)) {
@@ -73,16 +70,16 @@ public class SocketConnectionHandler implements Runnable {
 							logIfNeeded("Client with id {} correctly guessed the number", clientId);
 							randomNumber = random.nextInt(RANDOM_RANGE + 1); //upper bound is excluded
 							logIfNeeded("Server decided to generate {} as a number to be guessed", randomNumber);
-							output.println(generateServerGuessResponseAsString(GuessResult.CORRECT));
+							output.println(generateServerResponseAsString(ServerClientMessageType.GUESS, Result.CORRECT, 0, RANDOM_RANGE));
 						} else {
 							clientStats.addIncorrectGuess();
 							logIfNeeded("Client with id {} made incorrect guess {}", clientId, guess);
-							output.println(generateServerGuessResponseAsString(GuessResult.INCORRECT));
+							output.println(generateServerResponseAsString(ServerClientMessageType.GUESS, Result.INCORRECT, 0, RANDOM_RANGE));
 						}
 					} catch (NumberFormatException ignore) {
 						clientStats.addIncorrectGuess();
 						logIfNeeded("Client with id {} provided incorrect input", clientId);
-						output.println(generateServerGuessResponseAsString(GuessResult.INCORRECT));
+						output.println(generateServerResponseAsString(ServerClientMessageType.GUESS, Result.INCORRECT, 0, RANDOM_RANGE));
 					}
 				}
 			}
@@ -99,9 +96,12 @@ public class SocketConnectionHandler implements Runnable {
 		}
 	}
 
-	private static String generateServerGuessResponseAsString(GuessResult guessResult) throws IOException {
-		ServerGuessResponse response = new ServerGuessResponse(guessResult, 0, RANDOM_RANGE);
-		return AvroUtils.convertAvroToJsonString(response, ServerGuessResponse.getClassSchema());
+	private static String generateServerResponseAsString(ServerClientMessageType serverClientMessageType,
+														 Result result,
+														 int lowerRangeBoundary,
+														 int upperRangeBoundary) throws IOException {
+		ServerResponse response = new ServerResponse(serverClientMessageType, result, lowerRangeBoundary, upperRangeBoundary);
+		return AvroUtils.convertAvroToJsonString(response, ServerResponse.getClassSchema(), ServerResponse.class);
 	}
 
 	private void logIfNeeded(String logString, Object... arguments) {

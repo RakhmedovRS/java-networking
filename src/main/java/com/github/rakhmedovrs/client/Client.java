@@ -1,9 +1,9 @@
 package com.github.rakhmedovrs.client;
 
-import com.github.rakhmedovrs.avro.ClientGuessRequest;
-import com.github.rakhmedovrs.avro.GuessResult;
-import com.github.rakhmedovrs.avro.RequestIntention;
-import com.github.rakhmedovrs.avro.ServerGuessResponse;
+import com.github.rakhmedovrs.avro.ClientRequest;
+import com.github.rakhmedovrs.avro.Result;
+import com.github.rakhmedovrs.avro.ClientMessageType;
+import com.github.rakhmedovrs.avro.ServerResponse;
 import com.github.rakhmedovrs.avro.utils.AvroUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,11 +48,11 @@ public class Client implements Runnable {
 
 				int randomNumber = 0;
 				while (inputReader.hasNextLine()) {
-					ServerGuessResponse response = AvroUtils.parseJson(inputReader.nextLine(), ServerGuessResponse.getClassSchema());
-					if (GuessResult.INCORRECT == response.getGuessResult()) {
+					ServerResponse response = AvroUtils.parseJson(inputReader.nextLine(), ServerResponse.getClassSchema(), ServerResponse.class);
+					if (response.getResult() != null &&  Result.INCORRECT == response.getResult()) {
 						log.info("Incorrect guess {}", randomNumber);
 					} else {
-						if (GuessResult.CORRECT == response.getGuessResult()) {
+						if (Result.CORRECT == response.getResult()) {
 							log.info("Number {} was guessed successfully", randomNumber);
 						}
 
@@ -60,8 +60,8 @@ public class Client implements Runnable {
 					}
 					randomNumber = random.nextInt(response.getUpperRangeBoundary() + 1);
 
-					ClientGuessRequest clientGuess = new ClientGuessRequest(clientId, RequestIntention.MAKE_A_GUESS, randomNumber);
-					output.println(AvroUtils.convertAvroToJsonString(clientGuess, ClientGuessRequest.getClassSchema()));
+					ClientRequest clientGuess = new ClientRequest(clientId, ClientMessageType.GUESS, randomNumber);
+					output.println(AvroUtils.convertAvroToJsonString(clientGuess, ClientRequest.getClassSchema(), ClientRequest.class));
 
 					Thread.sleep(500);
 				}
