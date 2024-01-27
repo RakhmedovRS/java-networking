@@ -1,5 +1,10 @@
 package com.github.rakhmedovrs.client;
 
+import com.github.rakhmedovrs.avro.ClientRequest;
+import com.github.rakhmedovrs.avro.Result;
+import com.github.rakhmedovrs.avro.ClientMessageType;
+import com.github.rakhmedovrs.avro.ServerResponse;
+import com.github.rakhmedovrs.avro.utils.AvroUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
@@ -17,16 +22,6 @@ import java.util.Scanner;
  */
 @Slf4j
 public class Client implements Runnable {
-
-	private class Range {
-		private final int start;
-		private final int end;
-
-		public Range(int start, int end) {
-			this.start = start;
-			this.end = end;
-		}
-	}
 
 	private static final String SERVER_URL = "localhost";
 	private static final int DEFAULT_PORT = 8189;
@@ -51,37 +46,29 @@ public class Client implements Runnable {
 
 				Random random = new Random();
 
-				Range range = null;
 				int randomNumber = 0;
 				while (inputReader.hasNextLine()) {
-					String input = inputReader.nextLine();
-					if ("Wrong guess".equals(input)) {
+					ServerResponse response = AvroUtils.parseJson(inputReader.nextLine(), ServerResponse.getClassSchema(), ServerResponse.class);
+					if (response.getResult() != null &&  Result.INCORRECT == response.getResult()) {
 						log.info("Incorrect guess {}", randomNumber);
-					}
-					else {
-						if (input.contains("Congrats you correctly guessed the number")) {
+					} else {
+						if (Result.CORRECT == response.getResult()) {
 							log.info("Number {} was guessed successfully", randomNumber);
 						}
 
-						range = parseRange(input);
-						log.info("Attempting to guess number in range [{},{}]", range.start, range.end);
+						log.info("Attempting to guess number in range [{},{}]", response.getLowerRangeBoundary(), response.getUpperRangeBoundary());
 					}
-					randomNumber = random.nextInt(range.end + 1);
-					output.println(clientId + "_" + randomNumber);
+					randomNumber = random.nextInt(response.getUpperRangeBoundary() + 1);
+
+					ClientRequest clientGuess = new ClientRequest(clientId, ClientMessageType.GUESS, randomNumber);
+					output.println(AvroUtils.convertAvroToJsonString(clientGuess, ClientRequest.getClassSchema(), ClientRequest.class));
 
 					Thread.sleep(500);
 				}
 			}
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			log.error("Error during establishing connection");
 			throw new RuntimeException(e);
 		}
-	}
-
-	private Range parseRange(String input) {
-		String rangeSubString = input.substring(input.indexOf('[') + 1, input.indexOf(']'));
-		String[] range = rangeSubString.split(",");
-		return new Range(Integer.parseInt(range[0]), Integer.parseInt(range[1]));
 	}
 }

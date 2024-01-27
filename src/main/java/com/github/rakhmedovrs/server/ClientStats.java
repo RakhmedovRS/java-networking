@@ -12,11 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @ToString
 public class ClientStats {
-	private final String clientId;
+	private final Integer clientId;
 	private final AtomicInteger correctGuesses = new AtomicInteger();
 	private final AtomicInteger incorrectGuesses = new AtomicInteger();
 
-	public ClientStats(String clientId) {
+	public ClientStats(Integer clientId) {
 		this.clientId = clientId;
 	}
 

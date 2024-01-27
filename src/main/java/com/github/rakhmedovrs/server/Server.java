@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 public class Server implements Runnable {
 	private final int port;
 	private final ExecutorService executorService;
-	private final ConcurrentHashMap<String, ClientStats> stats;
+	private final ConcurrentHashMap<Integer, ClientStats> stats;
 
 	public Server() {
 		port = Common.DEFAULT_PORT;

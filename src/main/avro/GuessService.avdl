@@ -1,0 +1,33 @@
+@version("1.0")
+@namespace("com.github.rakhmedovrs.avro")
+protocol GuessService {
+
+	enum ClientMessageType {
+		CONNECT,
+		GUESS,
+		DISCONNECT
+	}
+
+	record ClientRequest {
+		int clientId;
+		ClientMessageType clientClientMessageType;
+		int? guess;
+	}
+
+	enum ServerClientMessageType {
+		GUESS,
+		DISCONNECT
+	}
+
+	enum Result {
+		CORRECT,
+		INCORRECT
+	}
+
+	record ServerResponse {
+		ServerClientMessageType serverClientMessageType;
+		Result? result;
+		int lowerRangeBoundary;
+		int upperRangeBoundary;
+	}
+}
